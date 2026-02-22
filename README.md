@@ -20,6 +20,8 @@ actionable recommendations that reduce cost and improve delivery performance.
 - Road transport has the highest cost as % of revenue (10.2%) despite being most used
 - Sea freight is the most cost-efficient mode at 7.4% cost-to-revenue ratio
 
+![Supplier Scorecard](supplier_scorecard.png)
+
 ## SQL Highlights
 The analysis includes 13 queries across 5 sections:
 - Revenue & sales overview with cumulative contribution analysis (window functions)
