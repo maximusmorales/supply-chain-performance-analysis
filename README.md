@@ -28,8 +28,9 @@ This project analyzes an end-to-end supply chain dataset to identify cost driver
 The analysis includes 13 queries across 5 sections covering revenue overview, supplier quality scoring, logistics cost breakdown, margin analysis, and executive KPIs. Techniques used include CTEs, window functions, conditional aggregation, and subqueries.
 
 ## Files
+
 | File | Description |
-|------|-------------|
+| --- | --- |
 | `supply_chain_analysis.sql` | All 13 SQL queries with comments |
 | `supply_chain_dashboard.xlsx` | Cleaned data, pivot tables, supplier scorecard |
 | `supply_chain_dashboard.html` | Interactive 3-page web dashboard |
