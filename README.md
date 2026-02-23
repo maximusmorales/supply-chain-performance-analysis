@@ -30,6 +30,9 @@ The analysis includes 13 queries across 5 sections:
 - Estimated gross margin per SKU accounting for all known cost components
 - Executive summary KPIs for dashboard use
 
+## Live Dashboard
+[Click here to view the interactive dashboard](your github pages URL here)
+
 ## Files
 | File | Description |
 |------|-------------|
