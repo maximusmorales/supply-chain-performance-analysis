@@ -1,12 +1,13 @@
 # Supply Chain Performance Analysis
 
-**Tools:** SQL (SQLite) · Excel · Power BI  
+**Tools:** SQL (SQLite) · Excel · Interactive Dashboard · GitHub  
 **Dataset:** 100 SKUs across haircare, skincare, and cosmetics product lines
 
+## Live Dashboard
+[Click here to view the interactive dashboard](https://maximusmorales.github.io/supply-chain-performance-analysis/supply_chain_dashboard.html)
+
 ## Project Overview
-This project analyzes an end-to-end supply chain dataset to identify cost drivers, 
-supplier quality issues, and logistics inefficiencies. The goal is to surface 
-actionable recommendations that reduce cost and improve delivery performance.
+This project analyzes an end-to-end supply chain dataset to identify cost drivers, supplier quality issues, and logistics inefficiencies. The goal is to surface actionable recommendations that reduce cost and improve delivery performance.
 
 ## Business Questions Answered
 - Which product categories generate the most revenue, and is pricing aligned with demand?
@@ -15,27 +16,20 @@ actionable recommendations that reduce cost and improve delivery performance.
 - Which SKUs are unprofitable when all supply chain costs are factored in?
 
 ## Key Findings
-- Supplier 4 had a 0% inspection pass rate across 18 SKUs — the highest quality risk
-- Supplier 1 outperformed all others with a 48% pass rate and lowest avg defect rate
-- Road transport has the highest cost as % of revenue (10.2%) despite being most used
-- Sea freight is the most cost-efficient mode at 7.4% cost-to-revenue ratio
+- Supplier 4 had a 0% inspection pass rate across 18 SKUs — the highest quality risk in the dataset
+- Supplier 1 outperformed all others with a 48% pass rate and the lowest average defect rate
+- Road transport has the highest cost as % of revenue (10.2%) despite being the most used mode
+- Sea freight is the most cost-efficient transport mode at 7.4% cost-to-revenue ratio
+- 36% of SKUs failed inspection — representing significant quality exposure across the supply chain
 
 ![Supplier Scorecard](supplier_scorecard.png)
 
 ## SQL Highlights
-The analysis includes 13 queries across 5 sections:
-- Revenue & sales overview with cumulative contribution analysis (window functions)
-- Supplier scorecard with pass/fail rates and lead time benchmarking
-- Logistics cost breakdown by carrier, route, and transport mode
-- Estimated gross margin per SKU accounting for all known cost components
-- Executive summary KPIs for dashboard use
-
-## Live Dashboard
-[Click here to view the interactive dashboard](your github pages URL here)
+The analysis includes 13 queries across 5 sections covering revenue overview, supplier quality scoring, logistics cost breakdown, margin analysis, and executive KPIs. Techniques used include CTEs, window functions, conditional aggregation, and subqueries.
 
 ## Files
 | File | Description |
 |------|-------------|
 | `supply_chain_analysis.sql` | All 13 SQL queries with comments |
 | `supply_chain_dashboard.xlsx` | Cleaned data, pivot tables, supplier scorecard |
-| `supply_chain_dashboard.pbix` | Power BI dashboard (3 report pages) |
+| `supply_chain_dashboard.html` | Interactive 3-page web dashboard |
