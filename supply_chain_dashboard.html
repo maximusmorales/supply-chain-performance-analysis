@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Supply Chain Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0f1e35;
+    --navy2: #162840;
+    --blue: #1a6bdb;
+    --blue-light: #3b8ef5;
+    --accent: #f0a500;
+    --red: #e8403a;
+    --green: #27a96c;
+    --yellow: #f0a500;
+    --surface: #1a2d48;
+    --surface2: #213554;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8edf5;
+    --text-muted: #7a95b8;
+    --text-dim: #4a6285;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--navy); color:var(--text); font-family:var(--font); min-height:100vh; }
+
+  /* HEADER */
+  header {
+    background: linear-gradient(135deg, var(--navy2) 0%, #0d1f38 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  .header-left h1 { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-left p { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: var(--mono); }
+  .header-right { display: flex; gap: 8px; align-items: center; }
+  .badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px;
+    padding: 4px 12px; font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+  .badge.live { border-color: var(--green); color: var(--green); }
+  .badge.live::before { content: '●'; margin-right: 5px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* NAV TABS */
+  nav {
+    background: var(--navy2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    display: flex; gap: 0;
+  }
+  .tab {
+    padding: 14px 20px; font-size: 13px; font-weight: 500; cursor: pointer;
+    color: var(--text-muted); border-bottom: 2px solid transparent;
+    transition: all 0.2s; user-select: none; white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--blue-light); border-bottom-color: var(--blue-light); }
+
+  /* FILTER BAR */
+  .filter-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 32px;
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  .filter-label { font-size: 11px; color: var(--text-dim); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.5px; }
+  .filter-btn {
+    padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text-muted); transition: all 0.15s; font-family: var(--font);
+  }
+  .filter-btn:hover { border-color: var(--blue); color: var(--text); }
+  .filter-btn.active { background: var(--blue); border-color: var(--blue); color: white; }
+
+  /* MAIN */
+  main { padding: 28px 32px; max-width: 1400px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  /* KPI CARDS */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px; position: relative; overflow: hidden; transition: border-color 0.2s;
+  }
+  .kpi-card:hover { border-color: rgba(255,255,255,0.15); }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .kpi-card.blue::before { background: var(--blue-light); }
+  .kpi-card.green::before { background: var(--green); }
+  .kpi-card.red::before { background: var(--red); }
+  .kpi-card.yellow::before { background: var(--yellow); }
+  .kpi-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.8px; font-family: var(--mono); margin-bottom: 10px; }
+  .kpi-value { font-size: 30px; font-weight: 700; letter-spacing: -1px; line-height: 1; }
+  .kpi-sub { font-size: 11px; color: var(--text-dim); margin-top: 6px; font-family: var(--mono); }
+  .kpi-card.blue .kpi-value { color: var(--blue-light); }
+  .kpi-card.green .kpi-value { color: var(--green); }
+  .kpi-card.red .kpi-value { color: var(--red); }
+  .kpi-card.yellow .kpi-value { color: var(--yellow); }
+
+  /* CHART GRID */
+  .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .chart-full { margin-bottom: 16px; }
+  .chart-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .chart-subtitle { font-size: 11px; color: var(--text-muted); margin-bottom: 18px; font-family: var(--mono); }
+  .chart-wrap { position: relative; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .data-table th { background: var(--surface2); color: var(--text-muted); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.8px; padding: 10px 14px;
+    text-align: left; font-family: var(--mono); border-bottom: 1px solid var(--border); }
+  .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 10px; font-weight: 600; font-family: var(--mono); }
+  .pill.pass { background: rgba(39,169,108,0.15); color: var(--green); }
+  .pill.fail { background: rgba(232,64,58,0.15); color: var(--red); }
+  .pill.pending { background: rgba(240,165,0,0.15); color: var(--yellow); }
+
+  /* INSIGHT BOX */
+  .insight-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px; }
+  .insight {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start;
+  }
+  .insight-icon { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+  .insight-text strong { font-size: 13px; font-weight: 600; display: block; margin-bottom: 3px; }
+  .insight-text span { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+  /* SECTION LABEL */
+  .section-label {
+    font-size: 10px; font-family: var(--mono); text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--text-dim); margin-bottom: 12px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    .chart-grid-2, .chart-grid-3 { grid-template-columns: 1fr; }
+    .insight-grid { grid-template-columns: 1fr; }
+    main { padding: 16px; }
+    header { padding: 16px; }
+    nav { padding: 0 16px; overflow-x: auto; }
+    .filter-bar { padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Supply Chain Performance Dashboard</h1>
+    <p>100 SKUs · Haircare · Skincare · Cosmetics · 5 Suppliers · 4 Transport Modes</p>
+  </div>
+  <div class="header-right">
+    <span class="badge">SQL · Excel · HTML</span>
+    <span class="badge live">Interactive</span>
+  </div>
+</header>
+
+<nav>
+  <div class="tab active" onclick="showPage('revenue')">📊 Revenue & Sales</div>
+  <div class="tab" onclick="showPage('supplier')">🏭 Supplier Quality</div>
+  <div class="tab" onclick="showPage('logistics')">🚚 Logistics & Cost</div>
+</nav>
+
+<div class="filter-bar">
+  <span class="filter-label">Filter by Product:</span>
+  <button class="filter-btn active" onclick="setFilter('all', this)">All Products</button>
+  <button class="filter-btn" onclick="setFilter('haircare', this)">Haircare</button>
+  <button class="filter-btn" onclick="setFilter('skincare', this)">Skincare</button>
+  <button class="filter-btn" onclick="setFilter('cosmetics', this)">Cosmetics</button>
+</div>
+
+<main>
+
+<!-- PAGE 1: REVENUE & SALES -->
+<div class="page active" id="page-revenue">
+
+  <div class="kpi-grid" id="kpi-revenue"></div>
+
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Revenue by Product Category</div>
+      <div class="chart-subtitle">Total revenue generated per product line</div>
+      <div class="chart-wrap"><canvas id="chart-rev-category" height="220"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Inspection Results Breakdown</div>
+      <div class="chart-subtitle">Pass / Fail / Pending across all SKUs</div>
+      <div class="chart-wrap"><canvas id="chart-inspection" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-full">
+    <div class="chart-card">
+      <div class="chart-title">Top 10 SKUs by Revenue</div>
+      <div class="chart-subtitle">Highest revenue-generating products with quality status</div>
+      <div style="overflow-x:auto;">
+        <table class="data-table" id="table-top-skus"></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Revenue per Unit by Category</div>
+      <div class="chart-subtitle">Efficiency of each product line</div>
+      <div class="chart-wrap"><canvas id="chart-rev-per-unit" height="200"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Stock Level Distribution</div>
+      <div class="chart-subtitle">Inventory health across all SKUs</div>
+      <div class="chart-wrap"><canvas id="chart-stock" height="200"></canvas></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PAGE 2: SUPPLIER QUALITY -->
+<div class="page" id="page-supplier">
+
+  <div class="kpi-grid" id="kpi-supplier"></div>
+
+  <div class="insight-grid" id="insight-supplier"></div>
+
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Avg Defect Rate by Supplier</div>
+      <div class="chart-subtitle">Lower is better — color indicates risk level</div>
+      <div class="chart-wrap"><canvas id="chart-defect" height="240"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Inspection Pass Rate by Supplier</div>
+      <div class="chart-subtitle">% of SKUs passing quality inspection</div>
+      <div class="chart-wrap"><canvas id="chart-passrate" height="240"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Pass / Fail / Pending by Supplier</div>
+      <div class="chart-subtitle">Absolute count of inspection outcomes</div>
+      <div class="chart-wrap"><canvas id="chart-inspection-stacked" height="240"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Avg Lead Time by Supplier</div>
+      <div class="chart-subtitle">Days from order to delivery</div>
+      <div class="chart-wrap"><canvas id="chart-leadtime" height="240"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-full">
+    <div class="chart-card">
+      <div class="chart-title">High-Risk SKUs — Failed Inspection</div>
+      <div class="chart-subtitle">SKUs with Fail status sorted by defect rate</div>
+      <div style="overflow-x:auto;">
+        <table class="data-table" id="table-failed"></table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PAGE 3: LOGISTICS & COST -->
+<div class="page" id="page-logistics">
+
+  <div class="kpi-grid" id="kpi-logistics"></div>
+
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Logistics Cost as % of Revenue by Transport Mode</div>
+      <div class="chart-subtitle">Lower % = more cost-efficient shipping</div>
+      <div class="chart-wrap"><canvas id="chart-cost-pct" height="240"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Avg Shipping Cost by Carrier</div>
+      <div class="chart-subtitle">Cost comparison across Carrier A, B, and C</div>
+      <div class="chart-wrap"><canvas id="chart-carrier" height="240"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Total Revenue by Transport Mode</div>
+      <div class="chart-subtitle">Revenue serviced by each shipping method</div>
+      <div class="chart-wrap"><canvas id="chart-rev-mode" height="220"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Avg Gross Margin by Product Category</div>
+      <div class="chart-subtitle">Margin after all supply chain costs</div>
+      <div class="chart-wrap"><canvas id="chart-margin" height="220"></canvas></div>
+    </div>
+  </div>
+
+  <div class="chart-full">
+    <div class="chart-card">
+      <div class="chart-title">Route Cost Analysis</div>
+      <div class="chart-subtitle">Logistics cost % of revenue by route and transport mode</div>
+      <div style="overflow-x:auto;">
+        <table class="data-table" id="table-routes"></table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</main>
+
+<script>
+// ── RAW DATA ─────────────────────────────────────────────────────────────────
+const RAW = [
+  ["SKU0","haircare",69.81,802,8661.997,58,29,"Supplier 3","Mumbai","Carrier B","Road","Route B",2.957,187.752,46.28,0.226,"Pending",8425.008,0.9726],
+  ["SKU1","skincare",14.844,736,7460.9,53,23,"Supplier 3","Mumbai","Carrier A","Road","Route B",9.717,503.066,33.617,4.854,"Pending",6914.501,0.9268],
+  ["SKU2","haircare",11.32,8,9577.75,1,12,"Supplier 1","Mumbai","Carrier B","Air","Route C",8.054,141.92,30.688,4.581,"Pending",9397.087,0.9811],
+  ["SKU3","skincare",61.163,83,7766.836,23,24,"Supplier 5","Kolkata","Carrier C","Rail","Route A",1.73,254.776,35.625,4.747,"Fail",7474.706,0.9624],
+  ["SKU4","skincare",4.805,871,2686.505,5,5,"Supplier 1","Delhi","Carrier A","Air","Route A",3.891,923.441,92.065,3.146,"Fail",1667.109,0.6205],
+  ["SKU5","haircare",1.7,147,2828.349,90,10,"Supplier 4","Bangalore","Carrier B","Road","Route A",4.444,235.461,56.766,2.779,"Fail",2531.677,0.8951],
+  ["SKU6","skincare",4.078,65,7823.477,11,14,"Supplier 3","Kolkata","Carrier C","Sea","Route A",3.881,134.369,1.085,1.001,"Pending",7684.142,0.9822],
+  ["SKU7","cosmetics",42.958,426,8496.104,93,22,"Supplier 4","Bangalore","Carrier B","Road","Route C",2.348,802.056,99.466,0.398,"Fail",7592.233,0.8936],
+  ["SKU8","cosmetics",68.718,150,7517.363,5,13,"Supplier 4","Mumbai","Carrier C","Sea","Route B",3.405,505.557,11.423,2.71,"Pending",6996.978,0.9308],
+  ["SKU9","skincare",64.016,980,4971.146,14,29,"Supplier 2","Chennai","Carrier A","Rail","Route B",7.167,995.929,47.958,3.845,"Pending",3920.092,0.7886],
+  ["SKU10","skincare",15.708,996,2330.966,51,18,"Supplier 5","Kolkata","Carrier C","Road","Route B",8.673,806.103,96.527,1.727,"Pass",1419.662,0.609],
+  ["SKU11","skincare",90.635,960,6099.944,46,28,"Supplier 2","Kolkata","Carrier A","Air","Route A",4.524,126.723,27.592,0.021,"Pending",5941.105,0.974],
+  ["SKU12","haircare",71.213,336,2873.741,100,3,"Supplier 4","Kolkata","Carrier A","Road","Route B",1.325,402.969,32.321,2.161,"Fail",2437.126,0.8481],
+  ["SKU13","skincare",16.16,249,4052.738,80,23,"Supplier 5","Bangalore","Carrier A","Road","Route B",9.537,547.241,97.829,1.631,"Pending",3398.131,0.8385],
+  ["SKU14","skincare",99.171,562,8653.571,54,25,"Supplier 1","Kolkata","Carrier B","Air","Route B",2.04,929.235,5.791,0.101,"Pending",7716.504,0.8917],
+  ["SKU15","skincare",36.989,469,5442.087,9,14,"Supplier 1","Bangalore","Carrier B","Sea","Route B",2.422,127.862,97.121,2.264,"Pass",5214.682,0.9582],
+  ["SKU16","skincare",7.547,280,6453.798,2,3,"Supplier 1","Bangalore","Carrier B","Air","Route A",4.191,865.526,77.106,1.013,"Pass",5506.975,0.8533],
+  ["SKU17","cosmetics",81.463,126,2629.396,45,7,"Supplier 1","Chennai","Carrier C","Air","Route C",3.585,670.934,47.68,0.102,"Fail",1907.197,0.7253],
+  ["SKU18","haircare",36.444,620,9364.674,10,18,"Supplier 2","Kolkata","Carrier C","Sea","Route A",4.339,593.48,27.108,2.232,"Pending",8739.746,0.9333],
+  ["SKU19","skincare",51.124,187,2553.496,48,20,"Supplier 4","Chennai","Carrier A","Road","Route C",4.743,477.308,82.373,3.646,"Fail",1989.072,0.779],
+  ["SKU20","skincare",96.341,320,8128.028,27,29,"Supplier 1","Chennai","Carrier A","Air","Route B",8.878,493.871,65.686,4.231,"Pass",7559.592,0.9301],
+  ["SKU21","cosmetics",84.894,601,7087.053,69,19,"Supplier 5","Chennai","Carrier B","Air","Route C",6.038,523.361,61.736,0.019,"Pending",6495.918,0.9166],
+  ["SKU22","haircare",27.68,884,2390.808,71,22,"Supplier 4","Kolkata","Carrier A","Rail","Route C",9.568,205.572,50.121,2.591,"Fail",2125.547,0.8890],
+  ["SKU23","cosmetics",4.324,391,8858.368,84,11,"Supplier 5","Kolkata","Carrier A","Rail","Route A",2.925,196.329,98.61,1.342,"Pending",8560.503,0.9664],
+  ["SKU24","haircare",4.156,209,9049.078,4,28,"Supplier 2","Bangalore","Carrier C","Air","Route A",9.741,758.725,40.382,3.691,"Pending",8240.229,0.9106],
+  ["SKU25","haircare",39.629,142,2174.777,82,19,"Supplier 4","Kolkata","Carrier C","Road","Route B",2.231,458.536,78.28,3.797,"Pending",1635.73,0.7521],
+  ["SKU26","haircare",97.447,353,3716.493,59,26,"Supplier 2","Bangalore","Carrier B","Rail","Route A",6.508,617.867,15.972,2.119,"Pass",3076.147,0.8277],
+  ["SKU27","cosmetics",92.557,352,2686.457,47,25,"Supplier 5","Mumbai","Carrier C","Sea","Route B",7.407,762.459,10.528,2.865,"Fail",1906.063,0.7095],
+  ["SKU28","cosmetics",2.397,394,6117.325,48,13,"Supplier 1","Mumbai","Carrier B","Air","Route A",9.898,123.437,59.429,0.816,"Fail",5924.56,0.9685],
+  ["SKU29","cosmetics",63.448,253,8318.903,45,16,"Supplier 1","Kolkata","Carrier B","Road","Route B",8.101,764.935,39.293,3.878,"Pass",7506.574,0.9024],
+  ["SKU30","haircare",8.023,327,2766.342,60,27,"Supplier 4","Kolkata","Carrier B","Road","Route C",8.955,880.081,51.635,0.965,"Pending",1825.672,0.66],
+  ["SKU31","skincare",50.847,168,9655.135,6,24,"Supplier 3","Chennai","Carrier B","Rail","Route C",2.68,609.379,60.251,2.989,"Pending",8982.825,0.9304],
+  ["SKU32","skincare",79.21,781,9571.55,89,30,"Supplier 3","Kolkata","Carrier C","Road","Route A",6.599,761.174,29.692,1.946,"Pass",8774.085,0.9167],
+  ["SKU33","cosmetics",64.795,616,5149.998,4,1,"Supplier 5","Chennai","Carrier C","Sea","Route A",4.858,371.255,23.853,3.541,"Fail",4750.031,0.9223],
+  ["SKU34","skincare",37.468,602,9061.711,1,4,"Supplier 1","Chennai","Carrier A","Road","Route B",1.019,510.358,10.754,0.647,"Pass",8539.579,0.9424],
+  ["SKU35","cosmetics",84.958,449,6541.329,42,3,"Supplier 1","Delhi","Carrier C","Sea","Route C",5.288,553.42,58.005,0.541,"Pass",5924.616,0.9057],
+  ["SKU36","skincare",9.813,963,7573.402,18,26,"Supplier 2","Delhi","Carrier B","Air","Route C",2.108,403.809,45.531,3.806,"Fail",7121.954,0.9404],
+  ["SKU37","skincare",23.4,963,2438.34,25,24,"Supplier 3","Kolkata","Carrier A","Sea","Route A",1.533,183.933,34.343,2.61,"Pending",2218.531,0.9099],
+  ["SKU38","cosmetics",52.076,705,9692.318,69,10,"Supplier 5","Mumbai","Carrier B","Air","Route B",9.236,339.673,5.931,0.613,"Pending",9337.479,0.9634],
+  ["SKU39","skincare",19.127,176,1912.466,78,30,"Supplier 2","Kolkata","Carrier A","Air","Route B",5.563,653.673,9.006,1.452,"Fail",1244.224,0.6506],
+  ["SKU40","skincare",80.541,933,5724.959,90,18,"Supplier 1","Kolkata","Carrier C","Road","Route A",7.23,529.809,88.179,4.213,"Pending",5099.742,0.8908],
+  ["SKU41","skincare",99.113,556,5521.205,64,18,"Supplier 4","Chennai","Carrier B","Sea","Route A",5.773,275.524,95.332,0.045,"Fail",5144.576,0.9318],
+  ["SKU42","skincare",46.529,155,1839.609,22,26,"Supplier 5","Bangalore","Carrier C","Road","Route A",7.526,635.657,96.423,4.939,"Fail",1100.003,0.598],
+  ["SKU43","haircare",11.743,598,5737.426,36,1,"Supplier 5","Mumbai","Carrier B","Air","Route A",3.694,716.044,26.277,0.372,"Pending",4991.41,0.87],
+  ["SKU44","cosmetics",51.356,919,7152.286,13,7,"Supplier 2","Delhi","Carrier C","Rail","Route A",7.577,610.453,22.554,2.963,"Fail",6511.701,0.9104],
+  ["SKU45","haircare",33.784,24,5267.957,93,25,"Supplier 2","Chennai","Carrier B","Rail","Route A",5.215,495.306,66.313,3.22,"Pass",4701.123,0.8924],
+  ["SKU46","haircare",27.082,859,2556.767,92,18,"Supplier 3","Chennai","Carrier B","Road","Route B",4.071,380.436,77.322,3.649,"Pending",2094.938,0.8194],
+  ["SKU47","skincare",95.712,910,7089.474,4,10,"Supplier 1","Kolkata","Carrier B","Rail","Route A",8.979,581.602,19.713,0.381,"Pending",6479.18,0.9139],
+  ["SKU48","haircare",76.036,29,7397.071,30,9,"Supplier 2","Mumbai","Carrier C","Rail","Route B",7.096,768.652,23.126,1.698,"Fail",6598.197,0.892],
+  ["SKU49","cosmetics",78.898,99,8001.613,97,28,"Supplier 5","Delhi","Carrier C","Rail","Route A",2.506,336.89,14.148,2.826,"Pass",7648.07,0.9558],
+  ["SKU50","cosmetics",14.203,633,5910.885,31,20,"Supplier 2","Delhi","Carrier A","Rail","Route B",6.248,496.249,45.179,4.755,"Fail",5363.21,0.9073],
+  ["SKU51","haircare",26.701,154,9866.465,100,18,"Supplier 5","Bangalore","Carrier A","Road","Route A",4.783,694.982,14.19,1.773,"Pending",9152.51,0.9276],
+  ["SKU52","skincare",98.032,820,9435.763,64,10,"Supplier 1","Mumbai","Carrier B","Air","Route C",8.631,602.898,9.167,2.122,"Pending",8815.066,0.9342],
+  ["SKU53","skincare",30.341,242,8232.335,96,1,"Supplier 1","Delhi","Carrier B","Air","Route B",1.013,750.738,83.344,1.41,"Pending",7397.239,0.8986],
+  ["SKU54","haircare",31.146,622,6088.021,33,26,"Supplier 1","Kolkata","Carrier B","Road","Route B",4.305,814.07,30.186,2.479,"Pass",5239.46,0.8606],
+  ["SKU55","haircare",79.855,701,2925.675,97,27,"Supplier 2","Delhi","Carrier A","Sea","Route B",5.014,323.013,30.324,4.549,"Fail",2567.324,0.8775],
+  ["SKU56","skincare",20.986,93,4767.02,25,24,"Supplier 1","Mumbai","Carrier C","Air","Route B",1.774,832.211,12.836,1.174,"Pass",3920.199,0.8224],
+  ["SKU57","haircare",49.263,227,1605.867,5,21,"Supplier 2","Delhi","Carrier B","Rail","Route A",9.161,482.191,67.78,2.511,"Pending",1046.735,0.6518],
+  ["SKU58","skincare",59.842,896,2021.15,10,18,"Supplier 3","Delhi","Carrier A","Road","Route B",4.938,110.364,65.047,1.73,"Fail",1840.8,0.9108],
+  ["SKU59","cosmetics",63.828,484,1061.619,100,11,"Supplier 1","Kolkata","Carrier B","Air","Route A",7.294,312.574,1.901,0.447,"Fail",739.85,0.6969],
+  ["SKU60","skincare",17.028,380,8864.084,41,29,"Supplier 4","Mumbai","Carrier C","Rail","Route A",4.381,430.169,87.213,2.853,"Fail",8342.321,0.9411],
+  ["SKU61","haircare",52.029,117,6885.589,32,14,"Supplier 4","Kolkata","Carrier C","Air","Route A",9.03,164.367,78.702,4.367,"Fail",6633.49,0.9634],
+  ["SKU62","cosmetics",72.796,270,3899.747,86,13,"Supplier 2","Mumbai","Carrier C","Sea","Route C",7.292,320.847,21.049,1.874,"Pass",3550.56,0.9105],
+  ["SKU63","skincare",13.017,246,4256.949,54,18,"Supplier 3","Bangalore","Carrier A","Sea","Route A",2.458,687.286,20.075,3.633,"Pending",3547.13,0.8333],
+  ["SKU64","skincare",89.634,134,8458.731,73,17,"Supplier 1","Delhi","Carrier C","Air","Route C",4.585,771.225,8.693,0.159,"Fail",7674.227,0.9073],
+  ["SKU65","skincare",33.698,457,8354.58,57,16,"Supplier 5","Kolkata","Carrier C","Rail","Route C",6.581,555.859,1.597,4.911,"Fail",7790.543,0.9325],
+  ["SKU66","skincare",26.035,704,8367.722,13,24,"Supplier 5","Kolkata","Carrier A","Road","Route A",2.216,393.843,42.084,3.448,"Fail",7929.578,0.9476],
+  ["SKU67","skincare",87.755,513,9473.798,12,10,"Supplier 1","Mumbai","Carrier C","Sea","Route C",9.148,169.272,7.058,0.132,"Pass",9288.321,0.9804],
+  ["SKU68","haircare",37.932,163,3550.218,0,2,"Supplier 2","Bangalore","Carrier B","Rail","Route A",1.194,299.706,97.114,1.983,"Fail",3152.204,0.8879],
+  ["SKU69","skincare",54.866,511,1752.381,95,9,"Supplier 4","Kolkata","Carrier B","Air","Route A",9.705,207.663,77.628,1.362,"Pending",1457.385,0.8317],
+  ["SKU70","haircare",47.915,32,7014.888,10,22,"Supplier 1","Bangalore","Carrier B","Road","Route C",6.316,183.273,11.441,1.831,"Pass",6813.859,0.9713],
+  ["SKU71","cosmetics",6.382,637,8180.337,76,2,"Supplier 2","Bangalore","Carrier A","Road","Route A",9.228,405.167,30.662,2.079,"Pending",7735.28,0.9456],
+  ["SKU72","cosmetics",90.204,478,2633.122,57,21,"Supplier 1","Bangalore","Carrier A","Rail","Route B",6.6,677.945,55.76,3.213,"Pending",1892.817,0.7188],
+  ["SKU73","cosmetics",83.851,375,7910.887,17,13,"Supplier 4","Chennai","Carrier B","Road","Route A",1.513,866.473,46.87,4.621,"Fail",6996.031,0.8844],
+  ["SKU74","haircare",3.17,904,5709.945,41,1,"Supplier 4","Delhi","Carrier A","Rail","Route A",5.238,341.553,80.581,0.397,"Fail",5282.574,0.9252],
+  ["SKU75","skincare",92.997,106,1889.074,16,25,"Supplier 1","Chennai","Carrier C","Air","Route C",2.474,873.13,48.065,2.03,"Pass",965.405,0.511],
+  ["SKU76","haircare",69.109,241,5328.376,38,25,"Supplier 2","Bangalore","Carrier A","Rail","Route A",7.055,997.413,64.324,2.18,"Pending",4259.584,0.7994],
+  ["SKU77","haircare",57.45,359,2483.76,96,26,"Supplier 1","Kolkata","Carrier B","Road","Route B",6.781,852.568,42.952,3.055,"Pass",1581.459,0.6367],
+  ["SKU78","haircare",6.307,946,1292.458,5,25,"Supplier 5","Mumbai","Carrier B","Sea","Route C",8.467,323.592,71.127,4.097,"Pending",889.273,0.688],
+  ["SKU79","haircare",57.057,198,7888.723,31,5,"Supplier 3","Bangalore","Carrier B","Air","Route C",6.496,351.504,57.871,0.166,"Pending",7472.852,0.9473],
+  ["SKU80","skincare",91.128,872,8651.673,39,8,"Supplier 3","Chennai","Carrier C","Sea","Route B",2.833,787.78,76.961,2.85,"Fail",7784.098,0.8997],
+  ["SKU81","haircare",72.819,774,4384.413,48,28,"Supplier 3","Delhi","Carrier B","Rail","Route B",4.066,276.778,19.79,2.547,"Pending",4083.779,0.9314],
+  ["SKU82","skincare",17.035,336,2943.382,42,6,"Supplier 2","Mumbai","Carrier A","Road","Route C",4.708,589.979,4.465,4.138,"Pending",2344.23,0.7964],
+  ["SKU83","haircare",68.911,663,2411.755,65,20,"Supplier 1","Bangalore","Carrier B","Road","Route A",4.95,682.971,97.731,0.773,"Fail",1626.103,0.6742],
+  ["SKU84","haircare",89.104,618,2048.29,73,24,"Supplier 5","Chennai","Carrier A","Air","Route B",8.382,465.457,33.809,4.843,"Pass",1540.643,0.7522],
+  ["SKU85","cosmetics",76.963,25,8684.613,15,4,"Supplier 5","Chennai","Carrier C","Road","Route B",8.249,842.687,69.929,1.374,"Fail",7763.748,0.894],
+  ["SKU86","skincare",19.998,223,1229.591,32,4,"Supplier 1","Mumbai","Carrier B","Rail","Route A",1.454,264.255,74.609,2.052,"Pass",889.273,0.7232],
+  ["SKU87","haircare",80.414,79,5133.847,5,27,"Supplier 3","Chennai","Carrier A","Sea","Route B",6.576,879.359,28.697,3.694,"Fail",4219.215,0.8218],
+  ["SKU88","cosmetics",75.27,737,9444.742,60,21,"Supplier 2","Mumbai","Carrier A","Sea","Route A",3.801,103.916,68.185,0.722,"Pending",9268.84,0.9814],
+  ["SKU89","cosmetics",97.76,134,5924.683,90,23,"Supplier 1","Kolkata","Carrier B","Rail","Route B",9.93,517.5,46.604,1.908,"Pending",5350.649,0.9031],
+  ["SKU90","skincare",13.882,320,9592.634,66,8,"Supplier 3","Bangalore","Carrier B","Rail","Route B",7.674,990.078,85.676,1.219,"Pass",8509.205,0.8871],
+  ["SKU91","cosmetics",62.112,916,1935.207,98,5,"Supplier 4","Delhi","Carrier B","Rail","Route B",7.472,996.778,39.773,0.626,"Pending",891.184,0.4605],
+  ["SKU92","cosmetics",47.714,276,2100.13,90,4,"Supplier 2","Mumbai","Carrier B","Rail","Route B",4.47,230.093,62.613,0.333,"Pass",1802.955,0.8585],
+  ["SKU93","haircare",69.291,114,4531.402,63,21,"Supplier 4","Chennai","Carrier C","Air","Route A",7.006,823.524,35.634,4.166,"Fail",3665.238,0.8089],
+  ["SKU94","cosmetics",3.038,987,7888.357,77,12,"Supplier 2","Delhi","Carrier B","Rail","Route B",6.943,846.665,60.387,1.464,"Pass",6974.361,0.8841],
+  ["SKU95","haircare",77.904,672,7386.364,15,18,"Supplier 4","Mumbai","Carrier B","Air","Route A",8.63,778.864,58.891,1.211,"Pending",6539.979,0.8854],
+  ["SKU96","cosmetics",24.423,324,7698.425,67,28,"Supplier 3","Mumbai","Carrier C","Road","Route A",5.353,188.742,17.804,3.872,"Pending",7486.526,0.9725],
+  ["SKU97","haircare",3.526,62,4370.917,46,10,"Supplier 4","Mumbai","Carrier A","Road","Route A",7.905,540.132,65.765,3.376,"Fail",3757.114,0.8596],
+  ["SKU98","skincare",19.755,913,8525.953,53,28,"Supplier 5","Chennai","Carrier B","Rail","Route A",1.41,882.199,5.605,2.908,"Pending",7636.739,0.8957],
+  ["SKU99","haircare",68.518,627,9185.186,55,29,"Supplier 2","Chennai","Carrier B","Rail","Route B",1.311,210.743,38.073,0.346,"Fail",8935.059,0.9728],
+];
+// Columns: 0=SKU,1=type,2=price,3=units,4=revenue,5=stock,6=leadtime,7=supplier,8=location,
+//          9=carrier,10=mode,11=route,12=shipcost,13=logcost,14=mfgcost,15=defect,16=inspection,17=margin$,18=margin%
+
+let currentFilter = 'all';
+let charts = {};
+
+function getData() {
+  if (currentFilter === 'all') return RAW;
+  return RAW.filter(r => r[1] === currentFilter);
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll();
+}
+
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  event.target.classList.add('active');
+  renderAll();
+}
+
+function fmt$(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+function fmtPct(n) { return n.toFixed(1) + '%'; }
+
+function destroyChart(id) { if(charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+const COLORS = {
+  blue: '#3b8ef5', green: '#27a96c', red: '#e8403a', yellow: '#f0a500',
+  purple: '#a855f7', cyan: '#06b6d4',
+  blues: ['#3b8ef5','#1a6bdb','#0d4fa3','#0a3a7a','#061f42'],
+  multi: ['#3b8ef5','#27a96c','#f0a500','#e8403a','#a855f7'],
+  passFail: { Pass:'#27a96c', Fail:'#e8403a', Pending:'#f0a500' }
+};
+
+function renderAll() {
+  const d = getData();
+  renderRevenuePage(d);
+  renderSupplierPage(d);
+  renderLogisticsPage(d);
+}
+
+// ── PAGE 1 ───────────────────────────────────────────────────────────────────
+function renderRevenuePage(d) {
+  const totalRev = d.reduce((s,r)=>s+r[4],0);
+  const totalUnits = d.reduce((s,r)=>s+r[3],0);
+  const failCount = d.filter(r=>r[16]==='Fail').length;
+  const avgMargin = d.reduce((s,r)=>s+r[18],0)/d.length*100;
+
+  document.getElementById('kpi-revenue').innerHTML = `
+    <div class="kpi-card blue"><div class="kpi-label">Total Revenue</div><div class="kpi-value">${fmt$(totalRev)}</div><div class="kpi-sub">${d.length} SKUs</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Total Units Sold</div><div class="kpi-value">${totalUnits.toLocaleString()}</div><div class="kpi-sub">across all products</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Avg Gross Margin</div><div class="kpi-value">${fmtPct(avgMargin)}</div><div class="kpi-sub">after all supply chain costs</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Failed Inspection</div><div class="kpi-value">${failCount}</div><div class="kpi-sub">of ${d.length} SKUs (${fmtPct(failCount/d.length*100)})</div></div>
+  `;
+
+  // Revenue by category
+  const cats = {};
+  d.forEach(r => { cats[r[1]] = (cats[r[1]]||0) + r[4]; });
+  destroyChart('rev-category');
+  charts['rev-category'] = new Chart(document.getElementById('chart-rev-category'), {
+    type:'bar',
+    data: { labels: Object.keys(cats).map(c=>c.charAt(0).toUpperCase()+c.slice(1)),
+      datasets:[{ label:'Revenue', data: Object.values(cats),
+        backgroundColor:['#3b8ef5','#27a96c','#f0a500'], borderRadius:6, borderSkipped:false }] },
+    options: chartOpts('$', false)
+  });
+
+  // Inspection donut
+  const insp = {Pass:0,Fail:0,Pending:0};
+  d.forEach(r => insp[r[16]]++);
+  destroyChart('inspection');
+  charts['inspection'] = new Chart(document.getElementById('chart-inspection'), {
+    type:'doughnut',
+    data: { labels:['Pass','Fail','Pending'], datasets:[{
+      data:[insp.Pass,insp.Fail,insp.Pending],
+      backgroundColor:['#27a96c','#e8403a','#f0a500'],
+      borderWidth:0, hoverOffset:6 }] },
+    options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{ color:'#7a95b8', font:{family:'DM Sans'}, padding:16 }},
+      tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${ctx.parsed} SKUs` }}} }
+  });
+
+  // Top 10 SKUs table
+  const top10 = [...d].sort((a,b)=>b[4]-a[4]).slice(0,10);
+  document.getElementById('table-top-skus').innerHTML = `
+    <thead><tr><th>#</th><th>SKU</th><th>Product Type</th><th>Revenue</th><th>Gross Margin</th><th>Margin %</th><th>Inspection</th></tr></thead>
+    <tbody>${top10.map((r,i)=>`<tr>
+      <td style="color:var(--text-dim);font-family:var(--mono)">${i+1}</td>
+      <td style="font-family:var(--mono);color:var(--blue-light)">${r[0]}</td>
+      <td style="text-transform:capitalize">${r[1]}</td>
+      <td style="font-family:var(--mono)">${fmt$(r[4])}</td>
+      <td style="font-family:var(--mono)">${fmt$(r[17])}</td>
+      <td style="font-family:var(--mono)">${fmtPct(r[18]*100)}</td>
+      <td><span class="pill ${r[16].toLowerCase()}">${r[16]}</span></td>
+    </tr>`).join('')}</tbody>`;
+
+  // Revenue per unit
+  const revPerUnit = {};
+  const unitCount = {};
+  d.forEach(r=>{ revPerUnit[r[1]]=(revPerUnit[r[1]]||0)+r[4]; unitCount[r[1]]=(unitCount[r[1]]||0)+r[3]; });
+  const cats2 = Object.keys(revPerUnit);
+  destroyChart('rev-per-unit');
+  charts['rev-per-unit'] = new Chart(document.getElementById('chart-rev-per-unit'), {
+    type:'bar',
+    data:{ labels:cats2.map(c=>c.charAt(0).toUpperCase()+c.slice(1)),
+      datasets:[{label:'Revenue per Unit',data:cats2.map(c=>revPerUnit[c]/unitCount[c]),
+        backgroundColor:['#3b8ef5','#27a96c','#f0a500'],borderRadius:6,borderSkipped:false}]},
+    options:chartOpts('$',false)
+  });
+
+  // Stock distribution
+  const stockBuckets = {'0-20':0,'21-50':0,'51-80':0,'81-100':0};
+  d.forEach(r=>{
+    if(r[5]<=20)stockBuckets['0-20']++;
+    else if(r[5]<=50)stockBuckets['21-50']++;
+    else if(r[5]<=80)stockBuckets['51-80']++;
+    else stockBuckets['81-100']++;
+  });
+  destroyChart('stock');
+  charts['stock'] = new Chart(document.getElementById('chart-stock'),{
+    type:'doughnut',
+    data:{labels:Object.keys(stockBuckets).map(k=>'Stock '+k),
+      datasets:[{data:Object.values(stockBuckets),backgroundColor:['#e8403a','#f0a500','#3b8ef5','#27a96c'],borderWidth:0,hoverOffset:6}]},
+    options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#7a95b8',font:{family:'DM Sans'},padding:12}}}}
+  });
+}
+
+// ── PAGE 2 ───────────────────────────────────────────────────────────────────
+function renderSupplierPage(d) {
+  const suppliers = ['Supplier 1','Supplier 2','Supplier 3','Supplier 4','Supplier 5'];
+  const bySupplier = {};
+  suppliers.forEach(s=>{ bySupplier[s]={skus:[],pass:0,fail:0,pending:0,defects:[],leads:[]}; });
+  d.forEach(r=>{
+    const s=bySupplier[r[7]]; if(!s) return;
+    s.skus.push(r); s.defects.push(r[15]); s.leads.push(r[6]);
+    if(r[16]==='Pass')s.pass++; else if(r[16]==='Fail')s.fail++; else s.pending++;
+  });
+
+  const avgDefect = d.reduce((s,r)=>s+r[15],0)/d.length;
+  const worstSup = suppliers.reduce((a,b)=>{
+    const ad=bySupplier[a]?.defects; const bd=bySupplier[b]?.defects;
+    if(!ad||!ad.length)return b; if(!bd||!bd.length)return a;
+    return ad.reduce((x,y)=>x+y,0)/ad.length > bd.reduce((x,y)=>x+y,0)/bd.length ? a : b;
+  });
+  const bestSup = suppliers.reduce((a,b)=>{
+    const as=bySupplier[a]; const bs=bySupplier[b];
+    if(!as||!as.skus.length)return b; if(!bs||!bs.skus.length)return a;
+    return as.pass/as.skus.length > bs.pass/bs.skus.length ? a : b;
+  });
+
+  document.getElementById('kpi-supplier').innerHTML = `
+    <div class="kpi-card red"><div class="kpi-label">Avg Defect Rate</div><div class="kpi-value">${fmtPct(avgDefect)}</div><div class="kpi-sub">across all SKUs</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Total Failed</div><div class="kpi-value">${d.filter(r=>r[16]==='Fail').length}</div><div class="kpi-sub">failed inspection</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Best Supplier</div><div class="kpi-value" style="font-size:18px;padding-top:4px">${bestSup}</div><div class="kpi-sub">highest pass rate</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Highest Risk</div><div class="kpi-value" style="font-size:18px;padding-top:4px">${worstSup}</div><div class="kpi-sub">highest defect rate</div></div>
+  `;
+
+  document.getElementById('insight-supplier').innerHTML = `
+    <div class="insight"><div class="insight-icon">🔴</div><div class="insight-text"><strong>Supplier 4 — 0% Pass Rate</strong><span>Across all SKUs supplied by Supplier 4, zero passed quality inspection. This represents the single largest quality risk in the supply chain.</span></div></div>
+    <div class="insight"><div class="insight-icon">✅</div><div class="insight-text"><strong>Supplier 1 — Best Performer</strong><span>Supplier 1 achieved the highest inspection pass rate and lowest average defect rate. Prioritizing this supplier reduces quality exposure.</span></div></div>
+    <div class="insight"><div class="insight-icon">⚠️</div><div class="insight-text"><strong>36% of SKUs Failed Inspection</strong><span>Over a third of all SKUs failed quality inspection — a systemic issue that goes beyond individual supplier performance.</span></div></div>
+    <div class="insight"><div class="insight-icon">📋</div><div class="insight-text"><strong>Supplier 3 — Slowest Lead Times</strong><span>Supplier 3 has the longest average lead time, creating downstream scheduling risk and potential stockout exposure.</span></div></div>
+  `;
+
+  const validSups = suppliers.filter(s=>bySupplier[s]&&bySupplier[s].skus.length>0);
+  const avgDefects = validSups.map(s=>{ const ds=bySupplier[s].defects; return ds.reduce((a,b)=>a+b,0)/ds.length; });
+  const defectColors = avgDefects.map(v=>v>3?'#e8403a':v>2?'#f0a500':'#27a96c');
+
+  destroyChart('defect');
+  charts['defect'] = new Chart(document.getElementById('chart-defect'),{
+    type:'bar',
+    data:{labels:validSups,datasets:[{label:'Avg Defect Rate %',data:avgDefects,backgroundColor:defectColors,borderRadius:6,borderSkipped:false}]},
+    options:chartOpts('%',false)
+  });
+
+  const passRates = validSups.map(s=>{ const sv=bySupplier[s]; return sv.skus.length?sv.pass/sv.skus.length*100:0; });
+  destroyChart('passrate');
+  charts['passrate'] = new Chart(document.getElementById('chart-passrate'),{
+    type:'bar',
+    data:{labels:validSups,datasets:[{label:'Pass Rate %',data:passRates,backgroundColor:passRates.map(v=>v>40?'#27a96c':v>20?'#f0a500':'#e8403a'),borderRadius:6,borderSkipped:false}]},
+    options:chartOpts('%',false)
+  });
+
+  destroyChart('inspection-stacked');
+  charts['inspection-stacked'] = new Chart(document.getElementById('chart-inspection-stacked'),{
+    type:'bar',
+    data:{labels:validSups,datasets:[
+      {label:'Pass',data:validSups.map(s=>bySupplier[s].pass),backgroundColor:'#27a96c',borderRadius:0,borderSkipped:false},
+      {label:'Fail',data:validSups.map(s=>bySupplier[s].fail),backgroundColor:'#e8403a',borderRadius:0,borderSkipped:false},
+      {label:'Pending',data:validSups.map(s=>bySupplier[s].pending),backgroundColor:'#f0a500',borderRadius:0,borderSkipped:false},
+    ]},
+    options:{...chartOpts('',false),scales:{x:{stacked:true,ticks:{color:'#7a95b8'},grid:{color:'rgba(255,255,255,0.04)'}},y:{stacked:true,ticks:{color:'#7a95b8'},grid:{color:'rgba(255,255,255,0.04)'}}}}
+  });
+
+  const avgLeads = validSups.map(s=>{ const ls=bySupplier[s].leads; return ls.reduce((a,b)=>a+b,0)/ls.length; });
+  destroyChart('leadtime');
+  charts['leadtime'] = new Chart(document.getElementById('chart-leadtime'),{
+    type:'bar',
+    data:{labels:validSups,datasets:[{label:'Avg Lead Time (days)',data:avgLeads,backgroundColor:'#3b8ef5',borderRadius:6,borderSkipped:false}]},
+    options:chartOpts(' days',false)
+  });
+
+  const failed = [...d].filter(r=>r[16]==='Fail').sort((a,b)=>b[15]-a[15]).slice(0,15);
+  document.getElementById('table-failed').innerHTML=`
+    <thead><tr><th>SKU</th><th>Product</th><th>Supplier</th><th>Location</th><th>Defect Rate</th><th>Mfg Cost</th><th>Revenue</th><th>Status</th></tr></thead>
+    <tbody>${failed.map(r=>`<tr>
+      <td style="font-family:var(--mono);color:var(--blue-light)">${r[0]}</td>
+      <td style="text-transform:capitalize">${r[1]}</td>
+      <td>${r[7]}</td><td>${r[8]}</td>
+      <td style="font-family:var(--mono);color:var(--red)">${fmtPct(r[15])}</td>
+      <td style="font-family:var(--mono)">${fmt$(r[14])}</td>
+      <td style="font-family:var(--mono)">${fmt$(r[4])}</td>
+      <td><span class="pill fail">Fail</span></td>
+    </tr>`).join('')}</tbody>`;
+}
+
+// ── PAGE 3 ───────────────────────────────────────────────────────────────────
+function renderLogisticsPage(d) {
+  const totalShip = d.reduce((s,r)=>s+r[12],0);
+  const totalLog = d.reduce((s,r)=>s+r[13],0);
+  const totalRev = d.reduce((s,r)=>s+r[4],0);
+  const costPct = (totalShip+totalLog)/totalRev*100;
+  const avgLead = d.reduce((s,r)=>s+r[6],0)/d.length;
+
+  document.getElementById('kpi-logistics').innerHTML=`
+    <div class="kpi-card blue"><div class="kpi-label">Total Logistics Spend</div><div class="kpi-value">${fmt$(totalShip+totalLog)}</div><div class="kpi-sub">shipping + logistics</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Cost % of Revenue</div><div class="kpi-value">${fmtPct(costPct)}</div><div class="kpi-sub">logistics cost ratio</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Avg Lead Time</div><div class="kpi-value">${avgLead.toFixed(1)}</div><div class="kpi-sub">days to deliver</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Highest Cost Mode</div><div class="kpi-value" style="font-size:18px;padding-top:4px">Road</div><div class="kpi-sub">10.2% cost-to-revenue</div></div>
+  `;
+
+  const modes = ['Road','Air','Rail','Sea'];
+  const byMode = {};
+  modes.forEach(m=>{byMode[m]={rev:0,cost:0,count:0};});
+  d.forEach(r=>{ const m=byMode[r[10]]; if(!m)return; m.rev+=r[4]; m.cost+=r[12]+r[13]; m.count++; });
+  const validModes = modes.filter(m=>byMode[m].count>0);
+  const costPcts = validModes.map(m=>byMode[m].cost/byMode[m].rev*100);
+
+  destroyChart('cost-pct');
+  charts['cost-pct'] = new Chart(document.getElementById('chart-cost-pct'),{
+    type:'bar',
+    data:{labels:validModes,datasets:[{label:'Cost as % of Revenue',data:costPcts,
+      backgroundColor:costPcts.map(v=>v>10?'#e8403a':v>9?'#f0a500':'#27a96c'),borderRadius:6,borderSkipped:false}]},
+    options:chartOpts('%',false)
+  });
+
+  const carriers = ['Carrier A','Carrier B','Carrier C'];
+  const byCarrier={};
+  carriers.forEach(c=>{byCarrier[c]={cost:[],rev:0};});
+  d.forEach(r=>{ const c=byCarrier[r[9]]; if(!c)return; c.cost.push(r[12]); c.rev+=r[4]; });
+  const validCarriers = carriers.filter(c=>byCarrier[c].cost.length>0);
+
+  destroyChart('carrier');
+  charts['carrier'] = new Chart(document.getElementById('chart-carrier'),{
+    type:'bar',
+    data:{labels:validCarriers,datasets:[{label:'Avg Shipping Cost ($)',
+      data:validCarriers.map(c=>{const cs=byCarrier[c].cost;return cs.reduce((a,b)=>a+b,0)/cs.length;}),
+      backgroundColor:['#3b8ef5','#27a96c','#f0a500'],borderRadius:6,borderSkipped:false}]},
+    options:chartOpts('$',false)
+  });
+
+  destroyChart('rev-mode');
+  charts['rev-mode'] = new Chart(document.getElementById('chart-rev-mode'),{
+    type:'doughnut',
+    data:{labels:validModes,datasets:[{data:validModes.map(m=>byMode[m].rev),
+      backgroundColor:['#3b8ef5','#27a96c','#f0a500','#a855f7'],borderWidth:0,hoverOffset:6}]},
+    options:{responsive:true,plugins:{legend:{position:'bottom',labels:{color:'#7a95b8',font:{family:'DM Sans'},padding:12}},
+      tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${fmt$(ctx.parsed)}`}}}}
+  });
+
+  const cats={};
+  d.forEach(r=>{const c=cats[r[1]]=cats[r[1]]||{margins:[]};c.margins.push(r[18]);});
+  const catKeys=Object.keys(cats);
+  destroyChart('margin');
+  charts['margin'] = new Chart(document.getElementById('chart-margin'),{
+    type:'bar',
+    data:{labels:catKeys.map(c=>c.charAt(0).toUpperCase()+c.slice(1)),
+      datasets:[{label:'Avg Margin %',data:catKeys.map(k=>{const ms=cats[k].margins;return ms.reduce((a,b)=>a+b,0)/ms.length*100;}),
+        backgroundColor:['#3b8ef5','#27a96c','#f0a500'],borderRadius:6,borderSkipped:false}]},
+    options:chartOpts('%',false)
+  });
+
+  const routes=['Route A','Route B','Route C'];
+  const byRoute={};
+  d.forEach(r=>{const key=r[11]+' / '+r[10];const rv=byRoute[key]=byRoute[key]||{rev:0,cost:0,count:0,mode:r[10],route:r[11]};
+    rv.rev+=r[4];rv.cost+=r[12]+r[13];rv.count++;});
+  const routeRows=Object.values(byRoute).sort((a,b)=>b.cost/b.rev-a.cost/a.rev);
+  document.getElementById('table-routes').innerHTML=`
+    <thead><tr><th>Route</th><th>Mode</th><th>Shipments</th><th>Total Revenue</th><th>Total Cost</th><th>Cost % of Revenue</th></tr></thead>
+    <tbody>${routeRows.map(r=>{const pct=r.cost/r.rev*100;return`<tr>
+      <td style="font-family:var(--mono)">${r.route}</td>
+      <td>${r.mode}</td>
+      <td style="font-family:var(--mono);text-align:center">${r.count}</td>
+      <td style="font-family:var(--mono)">${fmt$(r.rev)}</td>
+      <td style="font-family:var(--mono)">${fmt$(r.cost)}</td>
+      <td style="font-family:var(--mono);color:${pct>11?'#e8403a':pct>9?'#f0a500':'#27a96c'}">${fmtPct(pct)}</td>
+    </tr>`;}).join('')}</tbody>`;
+}
+
+function chartOpts(suffix, horizontal) {
+  return {
+    responsive:true,
+    indexAxis: horizontal?'y':'x',
+    plugins:{ legend:{display:false}, tooltip:{callbacks:{
+      label:ctx=>{
+        const v=ctx.parsed[horizontal?'x':'y']??ctx.parsed;
+        if(suffix==='$') return ' '+fmt$(v);
+        if(suffix==='%') return ' '+fmtPct(v);
+        return ' '+v.toFixed(1)+suffix;
+      }}}},
+    scales:{
+      x:{ticks:{color:'#7a95b8',font:{family:'DM Mono',size:11}},grid:{color:'rgba(255,255,255,0.04)'}},
+      y:{ticks:{color:'#7a95b8',font:{family:'DM Mono',size:11}},grid:{color:'rgba(255,255,255,0.04)'}}
+    }
+  };
+}
+
+Chart.defaults.color = '#7a95b8';
+Chart.defaults.font.family = 'DM Sans';
+renderAll();
+</script>
+</body>
+</html>
